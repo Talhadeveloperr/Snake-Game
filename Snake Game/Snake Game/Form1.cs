@@ -7,14 +7,14 @@ namespace Snake_Game
 {
     public partial class Form1 : Form
     {
-        // ================= GRID SETTINGS =================
+        
         private const int CELL_SIZE = 20;
         private const int MIN_GRID = 20;
 
         private int gridWidth;
         private int gridHeight;
 
-        // ================= GAME DATA =================
+        
         private List<Rectangle> snake;
         private Rectangle food;
         private int direction; 
@@ -23,16 +23,26 @@ namespace Snake_Game
         private bool isPaused = false;
         private Random random = new Random();
 
-        // ================= CONSTRUCTOR =================
+        
         public Form1()
         {
             InitializeComponent();
+            this.DoubleBuffered = true;
+            EnableDoubleBuffering(pnlCanvas);
             KeyPreview = true;
             timer1.Stop();
             ResetToStartScreen();
         }
+        private void EnableDoubleBuffering(Control control)
+        {
+            typeof(Control).GetProperty(
+                "DoubleBuffered",
+                System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance
+            )?.SetValue(control, true, null);
+        }
 
-        // ================= START SCREEN =================
+
         private void ResetToStartScreen()
         {
             snake = null;
@@ -44,11 +54,11 @@ namespace Snake_Game
             lblInstructions.Visible = true;
 
             lblInstructions.Text =
-                "🎮 HOW TO PLAY\n\n" +
-                "➡ Use Arrow Keys to move the snake\n" +
-                "🍎 Eat food to gain points\n" +
-                "💥 Avoid walls and yourself\n" +
-                "⏸ Pause / Resume anytime\n\n" +
+                " HOW TO PLAY\n\n" +
+                " Use Arrow Keys to move the snake\n" +
+                " Eat food to gain points\n" +
+                " Avoid walls and yourself\n" +
+                " Pause / Resume anytime\n\n" +
                 "Choose difficulty to start!";
 
             lblInstructions.TextAlign = ContentAlignment.MiddleCenter;
@@ -72,7 +82,7 @@ namespace Snake_Game
             grpDifficultylevel.Visible = true;
         }
 
-        // ================= DIFFICULTY =================
+        
         private void btnEasy_Click(object sender, EventArgs e)
         {
             timer1.Interval = 120;
@@ -103,64 +113,57 @@ namespace Snake_Game
             InitializeGame();
         }
 
-        // ================= GAME INIT =================
+
         private void InitializeGame()
         {
-            gridWidth = Math.Max(MIN_GRID, pnlCanvas.Width / CELL_SIZE);
-            gridHeight = Math.Max(MIN_GRID, pnlCanvas.Height / CELL_SIZE);
+            gridWidth = pnlCanvas.Width / CELL_SIZE;
+            gridHeight = pnlCanvas.Height / CELL_SIZE;
 
             int startX = (gridWidth / 2) * CELL_SIZE;
             int startY = (gridHeight / 2) * CELL_SIZE;
 
             snake = new List<Rectangle>
-            {
-                new Rectangle(startX, startY, CELL_SIZE, CELL_SIZE),
-                new Rectangle(startX - CELL_SIZE, startY, CELL_SIZE, CELL_SIZE),
-                new Rectangle(startX - CELL_SIZE * 2, startY, CELL_SIZE, CELL_SIZE)
-            };
+    {
+        new Rectangle(startX, startY, CELL_SIZE, CELL_SIZE),
+        new Rectangle(startX - CELL_SIZE, startY, CELL_SIZE, CELL_SIZE),
+        new Rectangle(startX - CELL_SIZE * 2, startY, CELL_SIZE, CELL_SIZE)
+    };
 
             direction = 0;
             score = 0;
             lbltxtCurrentscore.Text = "0";
 
             GenerateFood();
-            this.ActiveControl = null;
-            this.Focus();
             timer1.Start();
         }
 
-        // ================= FOOD GENERATION =================
+
+
         private void GenerateFood()
         {
-            Rectangle newFood;
-            bool collision;
+            List<Point> freeCells = new List<Point>();
 
-            do
+            for (int x = 0; x < gridWidth; x++)
             {
-                collision = false;
-                newFood = new Rectangle(
-                    random.Next(0, gridWidth) * CELL_SIZE,
-                    random.Next(0, gridHeight) * CELL_SIZE,
-                    CELL_SIZE,
-                    CELL_SIZE
-                );
-
-                foreach (Rectangle part in snake)
+                for (int y = 0; y < gridHeight; y++)
                 {
-                    if (newFood.IntersectsWith(part))
-                    {
-                        collision = true;
-                        break;
-                    }
+                    Point p = new Point(x * CELL_SIZE, y * CELL_SIZE);
+                    if (!snake.Exists(s => s.Location == p))
+                        freeCells.Add(p);
                 }
+            }
 
-            } while (collision);
+            if (freeCells.Count == 0)
+            {
+                GameOver(); 
+                return;
+            }
 
-            food = newFood;
-            pnlCanvas.Invalidate();
+            Point chosen = freeCells[random.Next(freeCells.Count)];
+            food = new Rectangle(chosen.X, chosen.Y, CELL_SIZE, CELL_SIZE);
         }
 
-        // ================= KEYBOARD INPUT =================
+
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (snake == null || isPaused)
@@ -185,7 +188,7 @@ namespace Snake_Game
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        // ================= GAME LOOP =================
+        
         private void timer1_Tick(object sender, EventArgs e)
         {
             MoveSnake();
@@ -195,29 +198,37 @@ namespace Snake_Game
 
         private void MoveSnake()
         {
-            Rectangle head = snake[0];
+            Rectangle oldHead = snake[0];
+
+            Rectangle newHead = new Rectangle(
+                oldHead.X,
+                oldHead.Y,
+                CELL_SIZE,
+                CELL_SIZE
+            );
 
             switch (direction)
             {
-                case 0: head.X += CELL_SIZE; break;
-                case 1: head.Y += CELL_SIZE; break;
-                case 2: head.X -= CELL_SIZE; break;
-                case 3: head.Y -= CELL_SIZE; break;
+                case 0: newHead.X += CELL_SIZE; break;
+                case 1: newHead.Y += CELL_SIZE; break;
+                case 2: newHead.X -= CELL_SIZE; break;
+                case 3: newHead.Y -= CELL_SIZE; break;
             }
 
-            snake.Insert(0, head);
+            snake.Insert(0, newHead);
 
-            if (head.IntersectsWith(food))
+            if (newHead.Location == food.Location)
             {
                 score += 10;
                 lbltxtCurrentscore.Text = score.ToString();
-                GenerateFood();
+                GenerateFood();   
             }
             else
             {
                 snake.RemoveAt(snake.Count - 1);
             }
         }
+
 
         private void CheckCollision()
         {
@@ -241,7 +252,7 @@ namespace Snake_Game
             }
         }
 
-        // ================= GAME OVER =================
+        
         private void GameOver()
         {
             timer1.Stop();
@@ -258,7 +269,7 @@ namespace Snake_Game
             btnRestart.Visible = true;
         }
 
-        // ================= PAUSE / RESUME =================
+        
         private void btnPause_Click(object sender, EventArgs e)
         {
             isPaused = true;
@@ -275,34 +286,34 @@ namespace Snake_Game
             btnResume.Enabled = false;
         }
 
-        // ================= RESTART =================
+      
         private void btnRestart_Click(object sender, EventArgs e)
         {
             ResetToStartScreen();
         }
 
-        // ================= DRAWING =================
+        
         private void pnlCanvas_Paint(object sender, PaintEventArgs e)
         {
             if (snake == null) return;
 
             Graphics g = e.Graphics;
 
-            // Draw grid
+            
             for (int x = 0; x <= gridWidth; x++)
                 g.DrawLine(Pens.LightGray, x * CELL_SIZE, 0, x * CELL_SIZE, gridHeight * CELL_SIZE);
             for (int y = 0; y <= gridHeight; y++)
                 g.DrawLine(Pens.LightGray, 0, y * CELL_SIZE, gridWidth * CELL_SIZE, y * CELL_SIZE);
 
-            // Draw snake
+            
             foreach (Rectangle part in snake)
                 g.FillRectangle(Brushes.Green, part);
 
-            // Draw food
+            
             g.FillRectangle(Brushes.Red, food);
         }
 
-        // ===== EMPTY EVENTS (DESIGNER SAFE) =====
+        
         private void lblSelectDifficulty_Click(object sender, EventArgs e) { }
         private void lblInstructions_Click(object sender, EventArgs e) { }
         private void grpboxcanvas_Enter(object sender, EventArgs e) { }
